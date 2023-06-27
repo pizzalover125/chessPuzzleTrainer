@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>Checkmate in 1 Trainer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+</head>
+<body onload="newPuzzle()" class="bg-slate-950">
+<div class="text-white grid place-items-center m-8">
+    <h1 id="title" class="text-4xl">----</h1>
+    <div id="myBoard" style="width: 400px"></div>
+    <p id="solution"></p>
+    <p id="cr">Correct: 0</p>
+    <p id="ir">Incorrect: 0</p>
+    <p id="prevsol"></p>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js" integrity="sha384-s3XgLpvmHyscVpijnseAmye819Ee3yaGa8NxstkJVyA6nuDFjt59u1QvuEl/mecz" crossorigin="anonymous"></script>
+<script>
+    // puzzles gotten from https://github.com/denialromeo/4462-chess-problems/blob/master/problems.json
+    var board = null;
+    var game = new Chess();
+    const title = $("#title");
+    const solution = $("#solution");
+    const correctText = $("#cr");
+    const incorrectText = $("#ir");
+    const psol = $("#prevsol");
+    var correct = 0;
+    var incorrect = 0;
+    var config = {
+        draggable: true,
+        pieceTheme: 'img/{piece}.png',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd
+    };
+    var correctMove = "";
+    board = Chessboard('myBoard', config);
+    solution.hide();
+
+    function newPuzzle() {
+        psol.hide();
+        $.getJSON('puzzles.json', function(data) {
+            var index = Math.floor(Math.random() * 301);
+            var problem = data['problems'][index];
+
+            board.position(problem['fen']);
+            game.load(problem['fen']);
+            console.log(game.fen());
+            console.log(board.position());
+            title.text("#" + problem['problemid'] + ": " + problem['type']);
+            solution.text(problem['moves']);
+        });
+    }
+
+    function onDragStart(source, piece, position, orientation) {
+        if (game.game_over()) return false;
+
+        if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+            (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+            return false;
+        }
+    }
+
+    function onDrop(source, target) {
+        var move = game.move({
+            from: source,
+            to: target,
+            promotion: 'q'
+        });
+
+        if (move === null) return 'snapback';
+
+        var moveAN = move.from + '-' + move.to;
+        var solutionMoves = solution.text().split(' ');
+
+        if (!solutionMoves.includes(moveAN)) {  
+            incorrect++;
+            incorrectText.text("Incorrect: "+incorrect)
+            psol.show();
+            psol.text("Solution was: "+solutionMoves);
+            setTimeout(newPuzzle, 3000);
+        } else {
+            correct++;
+            psol.hide();
+            correctText.text("Correct: "+correct)
+            newPuzzle();
+        }
+
+        updateStatus();
+    }
+
+    function onSnapEnd() {
+        board.position(game.fen());
+    }
+
+    function updateStatus() {
+        var status = '';
+
+        var moveColor = 'White';
+        if (game.turn() === 'b') {
+            moveColor = 'Black';
+        }
+
+        if (game.in_checkmate()) {
+            status = 'Game over, ' + moveColor + ' is in checkmate.';
+        } else if (game.in_draw()) {
+            status = 'Game over, drawn position.';
+        } else {
+            status = moveColor + ' to move';
+
+            if (game.in_check()) {
+                status += ', ' + moveColor + ' is in check';
+            }
+        }
+
+    }
+</script>
+</body>
+</html>
